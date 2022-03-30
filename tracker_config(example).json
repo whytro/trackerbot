@@ -1,0 +1,43 @@
+{
+    "Tracker_Config": {
+        "Target_Subreddit": "",
+        "Tracker_Interval": 15,
+        "Tracker_Iterate_Amount": 100,
+        "Update_Day_Limit": 7,
+        "Minimum_Epoch": 1588338000
+    },
+    "Reddit_Config": {
+        "Client_Id": "",
+        "Client_Secret": "",
+        "Redirect_URI": "http://localhost:8080",
+        "Scope": "identity read modposts edit save history subscribe submit",
+        "User_Agent": "
+    },
+    "Discord_Config": {
+        "Token": "",
+        "Expertise_Max": 50,
+        "Server_Id": 0,
+    	"Managing_Channel": 0,
+    	"Queue_Channel": 0,
+    	"Log_Channel": 0
+    },
+    "SQL_Config": {
+	    "Admin_Credentials": "user=postgres password=dbp1",
+	    "Connection_String": "user=rf_bot password=password host=127.0.0.1 dbname=rf_data"
+    },
+    "Format_Config": {
+        "Main_Char_Limit": 500,
+        "Context_Char_Limit": 100,
+	    "Entry": "* [Comment by {0}]({1})\n\n>^(`{2} UTC`)\n\n>{3}",
+	    "Entry_wExpertise": "* [Comment by {0}]({1})\n\n>^(`{2}` `{3} UTC`)\n\n>{4}",
+	    "Context": "***Q. \"{}\"***\n\n>",
+	    "Comment": "{}",
+	    "Footer": "\n\n---\n^(This was an automatically generated post. To report any bugs, ask questions, or suggest improvements to this bot's functionality, please contact us via ModMail.)"
+    },
+    "Users": {
+        "Whytro": {
+            "User_Id": 95415038768066560,
+            "Permissions_Level": 2
+        }
+    }
+}
