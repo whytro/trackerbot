@@ -11,7 +11,7 @@
         "Client_Secret": "",
         "Redirect_URI": "http://localhost:8080",
         "Scope": "identity read modposts edit save history subscribe submit",
-        "User_Agent": "
+        "User_Agent": ""
     },
     "Discord_Config": {
         "Token": "",
