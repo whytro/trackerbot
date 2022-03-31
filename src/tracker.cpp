@@ -43,9 +43,15 @@ void Tracker::reload_config() {
     _cfg_handler->load_config();
 }
 
-bool Tracker::permissions_check(dpp::snowflake user_id, User::Permission req_perm_level) {
-    const User user = _cfg_handler->user_map_find(user_id);
-    return user.permission_level >= req_perm_level;   
+bool Tracker::permissions_check(const dpp::interaction_create_t& event, User::Permission req_perm_level) {
+    const User user = _cfg_handler->user_map_find(event.command.member.user_id);
+    const bool allowed = user.permission_level >= req_perm_level;
+    
+    if(!allowed) {
+        event.reply(dpp::ir_channel_message_with_source, "Insufficient Permissions");
+    }
+
+    return allowed;   
 }
 
 int32_t Tracker::status_color(Target::Status status) {
@@ -153,14 +159,18 @@ std::string Tracker::construct_comments(const std::string& thread_id) {
     return cumulative_text;
 }
 
-void Tracker::approve_post(const std::string& comment_id, const std::string& supervisor_username, int64_t supervisor_id) {
+reddit::Comment Tracker::get_comment(const std::string& comment_id) {
     const reddit::CommentListings commentlistings = _reddit_api->get_comment("t1_" + comment_id);
 
     if(commentlistings.data.dist == 0) {
         throw std::runtime_error("Invalid Comment ID was provided, resulting in 0 results.");
     }
 
-    const reddit::Comment comment = commentlistings.children[0];
+    return commentlistings.children[0];
+}
+void Tracker::approve_post(const std::string& comment_id, const std::string& supervisor_username, int64_t supervisor_id) {
+    const reddit::Comment comment = get_comment(comment_id);
+
     if(comment.author == "[deleted]") {
         log_post_action("Invalid Post - Deleted", comment, false, "");
         return;
@@ -184,13 +194,7 @@ void Tracker::approve_post(const std::string& comment_id, const std::string& sup
     }
 }
 void Tracker::deny_post(const std::string& comment_id, const std::string& supervisor_username, int64_t supervisor_id) {
-    const reddit::CommentListings commentlistings = _reddit_api->get_comment("t1_" + comment_id);
-
-    if(commentlistings.data.dist == 0) {
-        throw std::runtime_error("Invalid Comment ID was provided, resulting in 0 results.");
-    }
-
-    const reddit::Comment comment = commentlistings.children[0];
+    const reddit::Comment comment = get_comment(comment_id);
     _sql->change_comment_status(comment.id, 0, supervisor_username, supervisor_id);
 
     log_post_action(supervisor_username, comment, false, "");

@@ -23,7 +23,7 @@ public:
 
 	void reload_config();
 
-	bool permissions_check(dpp::snowflake user_id, User::Permission req_perm_level);
+	bool permissions_check(const dpp::interaction_create_t& event, User::Permission req_perm_level);
 
 	void approve_post(const std::string& comment_id, const std::string& supervisor_username, int64_t supervisor_id);
 	void deny_post(const std::string& comment_id, const std::string& supervisor_username, int64_t supervisor_id);
@@ -63,6 +63,7 @@ private:
 	static std::string status_string(Target::Status status);
 	[[nodiscard]] std::string format_comment_for_discord(const std::string& comment_body) const;
 
+	reddit::Comment get_comment(const std::string& comment_id);
 	void log_post_action(const std::string& user, const reddit::Comment& comment, bool approved, const std::string& sticky_id);
 	
 	void send_for_approval(const reddit::Comment& comment);

@@ -18,7 +18,7 @@ int main() {
 
     reddit::AuthInfo oa2info {
         reddit_cfg.client_id, reddit_cfg.client_secret, reddit_cfg.redirect_uri, 
-        reddit_cfg.scope, "", reddit_cfg.user_agent
+        reddit_cfg.scope, "permanent", reddit_cfg.user_agent
     };
 
     Tracker tracker(&bot, oa2info, std::move(cfg));
@@ -29,17 +29,19 @@ int main() {
         if(dpp::run_once<struct register_bot_commands>()) {
             std::vector<dpp::slashcommand> commands;
 
-            dpp::slashcommand tracker_cmd("addtracker", "Add Reddit User to the Tracker", bot.me.id);
-            tracker_cmd.add_option(
-                dpp::command_option(dpp::co_string, "username", "Their Reddit Username", true)
-            );
+            dpp::slashcommand tracker_cmd = dpp::slashcommand("addtracker", "Add Reddit User to the Tracker", bot.me.id)
+                .add_option(
+                    dpp::command_option(dpp::co_string, "username", "Their Reddit Username", true)
+                );
             commands.emplace_back(tracker_cmd);
 
-            dpp::slashcommand edit_cmd("edit", "Edit Target Parameters", bot.me.id);
-            edit_cmd.add_option(
-                dpp::command_option(dpp::co_string, "username", "Their Reddit Username", true)
-            );
+            dpp::slashcommand edit_cmd = dpp::slashcommand("edit", "Edit Target Parameters", bot.me.id)
+                .add_option(
+                    dpp::command_option(dpp::co_string, "username", "Their Reddit Username", true)
+                );
             commands.emplace_back(edit_cmd);
+
+            commands.emplace_back(dpp::slashcommand("list", "Print List of Tracked Users", bot.me.id));
 
             commands.emplace_back(dpp::slashcommand("ping", "Ping Pong", bot.me.id));
 
@@ -57,22 +59,11 @@ int main() {
         }
     });
 
-    bot.on_message_create([&bot, &tracker](const dpp::message_create_t& event) {
-        std::stringstream ss(event.msg.content);
-        std::string msgcommand;
-        ss >> msgcommand;
-
-        if(msgcommand == "!m") {
-            tracker.print_target_list();
-        }
-    });
-
     bot.on_interaction_create([&bot, &tracker](const dpp::interaction_create_t& event) {
         const std::string command = event.command.get_command_name();
 
         if(command == "addtracker") {
-            if(!tracker.permissions_check(event.command.member.user_id, User::Permission::MANAGEMENT)) {
-                event.reply(dpp::ir_channel_message_with_source, "Insufficient Permissions");
+            if(!tracker.permissions_check(event, User::Permission::MANAGEMENT)) {
                 return;
             }
 
@@ -80,8 +71,7 @@ int main() {
             tracker.add_target_menu(event, user);
         }
         else if(command == "edit") {
-            if(!tracker.permissions_check(event.command.member.user_id, User::Permission::MANAGEMENT)) {
-                event.reply(dpp::ir_channel_message_with_source, "Insufficient Permissions");
+            if(!tracker.permissions_check(event, User::Permission::MANAGEMENT)) {
                 return;
             }
 
@@ -89,9 +79,20 @@ int main() {
             tracker.edit_target_menu(event, user);
         }
         else if(command == "ping") {
+            if(!tracker.permissions_check(event, User::Permission::BASIC)) {
+                return;
+            }
+
             dpp::message cmd_reply = dpp::message(dpp::ir_channel_message_with_source, "Pong")
                 .set_flags(dpp::m_ephemeral);
             event.reply(cmd_reply);
+        }
+        else if(command == "list") {
+            if(!tracker.permissions_check(event, User::Permission::MANAGEMENT)) {
+                return;
+            }
+
+            tracker.print_target_list();
         }
     });
 
@@ -99,6 +100,10 @@ int main() {
         std::stringstream ss(event.custom_id);
         std::string command;
         ss >> command;
+
+        if(!tracker.permissions_check(event, User::Permission::MANAGEMENT)) {
+            return;
+        }
         
         if(command == "approvetracker") {
             std::string target_name;
@@ -167,6 +172,10 @@ int main() {
         std::string command;
         ss >> command;
 
+        if(!tracker.permissions_check(event, User::Permission::MANAGEMENT)) {
+            return;
+        }
+
         if(command == "change_status") {
             const std::string status_value = event.values[0];
             Target::Status new_status = Target::Status::UNKNOWN;
@@ -199,6 +208,10 @@ int main() {
         std::stringstream ss(event.custom_id);
         std::string command;
         ss >> command;
+
+        if(!tracker.permissions_check(event, User::Permission::BASIC)) {
+            return;
+        }
 
         if(command == "expertise_modal") {
             std::string target_name;

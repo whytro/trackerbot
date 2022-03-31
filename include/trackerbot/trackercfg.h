@@ -71,9 +71,9 @@ private:
     SQL_Config _sql_config;
     Format_Config _format_config;
 
-    // //Username - Rioter
+    // //Username - Tracked User
     std::unordered_map<std::string, Target> _target_map;
-    // //Managing Message ID - Rioter
+    // //Managing Message ID - Tracked User
     // std::unordered_map<int64_t, std::shared_ptr<Tracking_Target>> _managing_map;
 
     //Discord User ID - User
