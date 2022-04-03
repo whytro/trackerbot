@@ -9,19 +9,13 @@
 int main() {
     std::unique_ptr<TrackerConfig> cfg = std::make_unique<TrackerConfig>("tracker_config.json");
     const TrackerConfig::Discord_Config discord_cfg = cfg->get_discord_config();
-    const TrackerConfig::Reddit_Config reddit_cfg = cfg->get_reddit_config();
-
+    
     const dpp::snowflake target_server_id = discord_cfg.server_id;
     const int expertise_max = discord_cfg.expertise_max;
 
-    dpp::cluster bot(discord_cfg.token, dpp::i_default_intents | dpp::i_message_content);
+    dpp::cluster bot(discord_cfg.token, dpp::i_default_intents);
 
-    reddit::AuthInfo oa2info {
-        reddit_cfg.client_id, reddit_cfg.client_secret, reddit_cfg.redirect_uri, 
-        reddit_cfg.scope, "permanent", reddit_cfg.user_agent
-    };
-
-    Tracker tracker(&bot, oa2info, std::move(cfg));
+    Tracker tracker(&bot, std::move(cfg));
 
     bot.on_ready([&bot, &tracker, target_server_id](const dpp::ready_t& event) {
         std::cout << "Logged in as " << bot.me.username << "!\n";
@@ -41,9 +35,7 @@ int main() {
                 );
             commands.emplace_back(edit_cmd);
 
-            commands.emplace_back(dpp::slashcommand("list", "Print List of Tracked Users", bot.me.id));
-
-            commands.emplace_back(dpp::slashcommand("ping", "Ping Pong", bot.me.id));
+            commands.emplace_back(dpp::slashcommand("debug", "Debug Menu", bot.me.id));
 
             bot.guild_bulk_command_create(commands, target_server_id);
             std::cout << "Registered Commands\n";
@@ -87,12 +79,27 @@ int main() {
                 .set_flags(dpp::m_ephemeral);
             event.reply(cmd_reply);
         }
-        else if(command == "list") {
-            if(!tracker.permissions_check(event, User::Permission::MANAGEMENT)) {
-                return;
-            }
+        else if(command == "debug") {
+            const dpp::component ping_button = dpp::component()
+                .set_label("Ping")
+                .set_type(dpp::cot_button)
+                .set_style(dpp::cos_primary)
+                .set_id("ping");
+            const dpp::component list_button = dpp::component()
+                .set_label("List Tracked Users")
+                .set_type(dpp::cot_button)
+                .set_style(dpp::cos_secondary)
+                .set_id("print_targetlist");
+            const dpp::component action_row = dpp::component()
+                .set_type(dpp::cot_action_row)
+                .add_component(ping_button)
+                .add_component(list_button);
 
-            tracker.print_target_list();
+            const dpp::message res =  dpp::message(event.command.channel_id, "")
+                .add_component(action_row)
+                .set_flags(dpp::m_ephemeral);
+
+            event.reply(res);
         }
     });
 
@@ -164,6 +171,12 @@ int main() {
             ss >> target_name;
 
             tracker.suspend_target(event, target_name);
+        }
+        else if(command == "ping") {
+            event.reply("Pong!");
+        }
+        else if(command == "print_targetlist") {
+            tracker.print_target_list(event.command.channel_id);
         }
     });
 
