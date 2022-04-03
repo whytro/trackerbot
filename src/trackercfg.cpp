@@ -48,6 +48,7 @@ void TrackerConfig::load_config() {
     _reddit_config.redirect_uri = reddit_cfg["Redirect_URI"].GetString();
     _reddit_config.scope = reddit_cfg["Scope"].GetString();
     _reddit_config.user_agent = reddit_cfg["User_Agent"].GetString();
+    _reddit_config.refresh_token = reddit_cfg["Refresh_Token"].GetString();
 
     rapidjson::Value& discord_cfg = doc["Discord_Config"];
     _discord_config.token = discord_cfg["Token"].GetString();

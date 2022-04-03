@@ -24,6 +24,7 @@ public:
         std::string redirect_uri;
         std::string scope;
         std::string user_agent;
+        std::string refresh_token;
     };
     struct Discord_Config {
         std::string token;

@@ -12,7 +12,7 @@
 #include <future>
 #include <memory>
 
-Tracker::Tracker(dpp::cluster* bot, const reddit::AuthInfo& authinfo, std::unique_ptr<TrackerConfig> cfg_handler) 
+Tracker::Tracker(dpp::cluster* bot, std::unique_ptr<TrackerConfig> cfg_handler) 
     : _bot(bot)
     , _cfg_handler(std::move(cfg_handler))
     , _tracker_on_flag(false)
@@ -27,9 +27,20 @@ Tracker::Tracker(dpp::cluster* bot, const reddit::AuthInfo& authinfo, std::uniqu
     const std::string conn_string = _sql_config.conn_string;
     _sql = std::make_shared<sql_handler>(target_sub, admin_creds, conn_string);
 
-    _reddit_api = std::make_shared<reddit::Api>(authinfo, spdlog::level::debug);
-    _reddit_api->authenticate(_reddit_api->browser_get_token());
+    const TrackerConfig::Reddit_Config reddit_cfg = _cfg_handler->get_reddit_config();
+    reddit::AuthInfo oa2info {
+        reddit_cfg.client_id, reddit_cfg.client_secret, reddit_cfg.redirect_uri, 
+        reddit_cfg.scope, "permanent", reddit_cfg.user_agent
+    };
+    _reddit_api = std::make_shared<reddit::Api>(oa2info, spdlog::level::debug);
 
+    if(reddit_cfg.refresh_token.empty()) {
+        _reddit_api->authenticate(_reddit_api->browser_get_token(), true);
+    }
+    else {
+        _reddit_api->refresh_auth(reddit_cfg.refresh_token, true);
+    }
+    
     const std::unordered_map<std::string, Target> devmap = _sql->get_dev_map();
     _cfg_handler->target_map_reserve(devmap.size());
     for(const auto& itr : devmap) {
@@ -39,10 +50,10 @@ Tracker::Tracker(dpp::cluster* bot, const reddit::AuthInfo& authinfo, std::uniqu
 Tracker::~Tracker() {
     _tracker_on_flag = false;
 }
+
 void Tracker::reload_config() {
     _cfg_handler->load_config();
 }
-
 bool Tracker::permissions_check(const dpp::interaction_create_t& event, User::Permission req_perm_level) {
     const User user = _cfg_handler->user_map_find(event.command.member.user_id);
     const bool allowed = user.permission_level >= req_perm_level;
@@ -309,9 +320,8 @@ void Tracker::send_for_approval(const reddit::Comment& comment) {
     });
 }
 
-void Tracker::print_target_list() {
+void Tracker::print_target_list(int64_t channel_id) {
     const std::vector<Target::Data> targets = _cfg_handler->get_targets_vector_data();
-    const int64_t channel_id = _discord_config.managing_channel;
     const int discord_field_size = 25;
     
     std::vector<dpp::message> message_batches;

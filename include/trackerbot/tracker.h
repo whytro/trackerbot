@@ -13,7 +13,7 @@
 
 class Tracker {
 public:
-	Tracker(dpp::cluster* bot, const reddit::AuthInfo& authinfo, std::unique_ptr<TrackerConfig> cfg_handler);
+	Tracker(dpp::cluster* bot, std::unique_ptr<TrackerConfig> cfg_handler);
 	~Tracker();
 
 	Tracker(const Tracker&) = delete;
@@ -22,14 +22,13 @@ public:
 	Tracker& operator=(Tracker&&) = delete;
 
 	void reload_config();
-
 	bool permissions_check(const dpp::interaction_create_t& event, User::Permission req_perm_level);
 
 	void approve_post(const std::string& comment_id, const std::string& supervisor_username, int64_t supervisor_id);
 	void deny_post(const std::string& comment_id, const std::string& supervisor_username, int64_t supervisor_id);
 	void switch_comment_status(const dpp::interaction_create_t& event, const std::string& comment_id);
 
-	void print_target_list();
+	void print_target_list(int64_t channel_id);
 
 	void tracker_thread_initiate();
 	void tracker_iterate();
