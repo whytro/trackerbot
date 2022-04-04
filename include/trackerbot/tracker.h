@@ -60,7 +60,7 @@ private:
 	static int32_t status_color(Target::Status status);
 	static std::string status_emote(Target::Status status);
 	static std::string status_string(Target::Status status);
-	[[nodiscard]] std::string format_comment_for_discord(const std::string& comment_body) const;
+	[[nodiscard]] std::string format_comment_for_discord(const std::string& comment_body, bool is_context = false) const;
 
 	reddit::Comment get_comment(const std::string& comment_id);
 	void log_post_action(const std::string& user, const reddit::Comment& comment, bool approved, const std::string& sticky_id);

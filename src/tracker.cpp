@@ -107,8 +107,9 @@ std::string Tracker::status_string(Target::Status status) {
         return "Unknown";
     }
 }
-[[nodiscard]] std::string Tracker::format_comment_for_discord(const std::string& comment_body) const {
-    std::string text = "> " + Utility::smart_substring(comment_body, '.', _format_config.total_char_limit);
+[[nodiscard]] std::string Tracker::format_comment_for_discord(const std::string& comment_body, bool is_context) const {
+    const int char_limit = is_context ? _format_config.context_char_limit : _format_config.total_char_limit;
+    std::string text = "> " + Utility::smart_substring(comment_body, '.', char_limit);
     Utility::discord_quote_formatting(text);
     
     return text;
@@ -277,6 +278,16 @@ void Tracker::switch_comment_status(const dpp::interaction_create_t& event, cons
 }
 
 void Tracker::send_for_approval(const reddit::Comment& comment) {
+    const std::string context = _sql->get_context(comment.id);
+    
+    std::string context_text;
+    if(!context.empty()) {
+        context_text = format_comment_for_discord(context, true);
+    }
+    else {
+        context_text = "Response to Thread";
+    }
+
     const dpp::embed embed = dpp::embed()
         .set_title(comment.subreddit_name_prefixed)
         .set_color(0xFF8300)
@@ -287,7 +298,7 @@ void Tracker::send_for_approval(const reddit::Comment& comment) {
         )
         .add_field(
             "Context",
-            "> Response to Thread"
+            context_text
         )
         .add_field(
             "Post Text",
@@ -388,7 +399,7 @@ void Tracker::tracker_iterate() {
     const reddit::Listing input = reddit::Listing().limit(_tracker_config.tracker_iterate_amount);
     const reddit::CommentListings comments = _reddit_api->subreddit("friends").get_comments(input);
 
-    const std::string target_subreddit = _tracker_config.target_subreddit;
+    const std::string lowercase_target_subreddit = Utility::get_lowercase(_tracker_config.target_subreddit);
     const float minimum_epoch = _tracker_config.minimum_epoch;
 
     //Process Contexts
@@ -396,14 +407,16 @@ void Tracker::tracker_iterate() {
     context_ids.reserve(comments.children.size());
 
     for(const auto& itr : comments.children) {
-        if(itr.subreddit == target_subreddit && itr.parent_id.substr(0,2) == "t1") {
+        if(itr.parent_id.substr(0,2) == "t1" && 
+            Utility::get_lowercase(itr.subreddit) == lowercase_target_subreddit) 
+        {
             context_ids.emplace_back(itr.parent_id);
         }        
     }
     reddit::CommentListings contexts = _reddit_api->get_comments(context_ids);
 
     auto process_comment = [&](const reddit::Comment& comment) {
-        const bool subcheck = Utility::get_lowercase(comment.subreddit) == Utility::get_lowercase(target_subreddit);
+        const bool subcheck = Utility::get_lowercase(comment.subreddit) == lowercase_target_subreddit;
 
         if(comment.created_utc < minimum_epoch || !subcheck) {
             return;
@@ -414,19 +427,22 @@ void Tracker::tracker_iterate() {
             return;
         }
 
-        const std::string trimmed_link_id = comment.link_id.substr(3,9);
+        const std::string trimmed_link_id = comment.link_id.substr(3,8);
         const float timestamp = comment.edited ? comment.edited : comment.created_utc;
+
+        _sql->begin_transaction();
         _sql->insert_comment(comment.id, trimmed_link_id, comment.author,
             0, "", -1, timestamp, comment.body);
 
         if(comment.parent_id.substr(0,2) == "t1") {
             for(const auto& itr : contexts.children) {
-                //check if parent comment is the thread itself
-                if(itr.name != comment.parent_id) {
+                if(itr.id == comment.parent_id.substr(3,9)) {
                     _sql->insert_context(itr.id, trimmed_link_id, comment.id, true, itr.body);
+                    break;
                 }
             }
         }
+        _sql->commit_transaction();
 
         if(target.data->status == Target::Status::ACTIVE) {
             send_for_approval(comment);
