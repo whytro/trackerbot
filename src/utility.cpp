@@ -12,20 +12,22 @@ void Utility::replace_string(std::string& target, const std::string& from, const
     }
 }
 void Utility::strip_markdown_formatting(std::string& target) {
-    replace_string(target, "*", std::string());
-    replace_string(target, "~~", std::string());
-    replace_string(target, "^", std::string());
-    replace_string(target, ">", std::string());
-    replace_string(target, "`", std::string());
+    replace_string(target, "*", "");
+    replace_string(target, "~~", "");
+    replace_string(target, "^", "");
+    replace_string(target, ">", "");
+    replace_string(target, "`", "");
     replace_string(target, "\n", " ");
     replace_string(target, "#", "\\#");
 }
-std::string Utility::smart_substring(const std::string& longstring, char character, int length) {
+std::string Utility::smart_substring(std::string longstring, char character, int length) {
     if(longstring.length() < length) {
+        replace_string(longstring, "\n", "\n> ");
         return longstring;
     }
 
-    const std::string newstring = longstring.substr(0, length);
+    std::string newstring = longstring.substr(0, length);
+    replace_string(newstring, "\n", "\n> ");
     int lastSeparatorIndex = newstring.find_last_of(character);
     if(lastSeparatorIndex == std::string::npos) {
         return newstring + " [...]";

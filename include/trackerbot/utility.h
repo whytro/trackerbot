@@ -6,7 +6,7 @@
 class Utility {
 public:
 	static void strip_markdown_formatting(std::string& target);
-	static std::string smart_substring(const std::string& longstring, char character, int length);
+	static std::string smart_substring(std::string longstring, char character, int length);
 	static std::string get_lowercase(std::string string);
 	
 	static void discord_quote_formatting(std::string& string);

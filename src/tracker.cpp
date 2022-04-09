@@ -130,11 +130,11 @@ std::string Tracker::generate_sticky_comment(const std::string& author, const st
 }
 std::string Tracker::preformat_sticky_comment(const std::string& author, const std::string& url, int64_t epoch_time, std::string context, const std::string& comment) {
     Utility::strip_markdown_formatting(context);
-    Utility::smart_substring(context, ' ', _format_config.context_char_limit);
-    const std::string formatted_context = fmt::format(_format_config.context, context);
+    const std::string context_txt = Utility::smart_substring(context, ' ', _format_config.context_char_limit);
+    const std::string formatted_context = fmt::format(_format_config.context, context_txt);
     
-    Utility::smart_substring(comment, '.',  _format_config.total_char_limit);
-    const std::string formatted_comment = fmt::format(_format_config.comment, comment);
+    const std::string comment_txt = Utility::smart_substring(comment, '.',  _format_config.total_char_limit);
+    const std::string formatted_comment = fmt::format(_format_config.comment, comment_txt);
     const std::string combined_text = formatted_context + formatted_comment;
 
     return generate_sticky_comment(author, url, epoch_time, combined_text);
@@ -279,7 +279,7 @@ void Tracker::switch_comment_status(const dpp::interaction_create_t& event, cons
 
 void Tracker::send_for_approval(const reddit::Comment& comment) {
     const std::string context = _sql->get_context(comment.id);
-    
+
     std::string context_text;
     if(!context.empty()) {
         context_text = format_comment_for_discord(context, true);
@@ -321,7 +321,7 @@ void Tracker::send_for_approval(const reddit::Comment& comment) {
         .add_component(approve_button)
         .add_component(reject_button);
 
-    const dpp::message approval_msg = dpp::message(_discord_config.managing_channel, embed)
+    const dpp::message approval_msg = dpp::message(_discord_config.queue_channel, embed)
         .add_component(action_row);
 
     _bot->message_create(approval_msg, [](const dpp::confirmation_callback_t& msg_callback) {
@@ -799,13 +799,12 @@ int Tracker::update_thread_id_by_days(const std::string& thread_id, int days, bo
     return update_thread(thread_id, entry_timestamps, ignore_edit_checks);
 }
 
-int Tracker::force_update(int days, int interval) {
+int Tracker::force_update(int days) {
     int total_updated = 0;
 
     const std::vector<std::string> thread_ids = _sql->get_thread_ids_by_date(days);
     for(const auto& thread_id : thread_ids) {
         total_updated += update_thread_id_by_days(thread_id, days, true);
-        std::this_thread::sleep_for(std::chrono::seconds(interval));
     }
 
     return total_updated;

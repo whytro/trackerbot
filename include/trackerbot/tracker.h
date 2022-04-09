@@ -43,7 +43,7 @@ public:
 	void add_target_to_tracker(const dpp::interaction_create_t& event, const std::string& target_name);
 	void suspend_target(const dpp::interaction_create_t& event, const std::string& target_name);
 
-	int force_update(int days, int interval);
+	int force_update(int days);
 
 private:
 	dpp::cluster* _bot;
