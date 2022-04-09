@@ -90,10 +90,16 @@ int main() {
                 .set_type(dpp::cot_button)
                 .set_style(dpp::cos_secondary)
                 .set_id("print_targetlist");
+            const dpp::component force_update_button = dpp::component()
+                .set_label("Force Update Posts <30 Days")
+                .set_type(dpp::cot_button)
+                .set_style(dpp::cos_secondary)
+                .set_id("force_update 30");
             const dpp::component action_row = dpp::component()
                 .set_type(dpp::cot_action_row)
                 .add_component(ping_button)
-                .add_component(list_button);
+                .add_component(list_button)
+                .add_component(force_update_button);
 
             const dpp::message res =  dpp::message(event.command.channel_id, "")
                 .add_component(action_row)
@@ -177,6 +183,13 @@ int main() {
         }
         else if(command == "print_targetlist") {
             tracker.print_target_list(event.command.channel_id);
+        }
+        else if(command == "force_update") {
+            std::string days;
+            ss >> days;
+
+            event.reply("Force Updating");
+            tracker.force_update(std::stoi(days));
         }
     });
 
