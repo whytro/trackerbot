@@ -21,6 +21,7 @@ public:
 	Tracker(Tracker&&) = delete;
 	Tracker& operator=(Tracker&&) = delete;
 
+	TrackerConfig::Discord_Config get_discord_config();
 	void reload_config();
 	bool permissions_check(const dpp::interaction_create_t& event, User::Permission req_perm_level);
 

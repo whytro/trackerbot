@@ -8,6 +8,7 @@
 #include <rapidjson/filereadstream.h>
 #include <redditcpp/api.h>
 
+#include <algorithm>
 #include <exception>
 #include <future>
 #include <memory>
@@ -49,8 +50,12 @@ Tracker::Tracker(dpp::cluster* bot, std::unique_ptr<TrackerConfig> cfg_handler)
 }
 Tracker::~Tracker() {
     _tracker_on_flag = false;
+    _bot = nullptr;
 }
 
+TrackerConfig::Discord_Config Tracker::get_discord_config() {
+    return _discord_config;
+}
 void Tracker::reload_config() {
     _cfg_handler->load_config();
 }
@@ -82,16 +87,28 @@ int32_t Tracker::status_color(Target::Status status) {
 std::string Tracker::status_emote(Target::Status status) {
     switch(status) {
     case Target::Status::ACTIVE:
-        return ":green_circle:";
+        return "🟢";
     case Target::Status::AUTOMATIC:
-        return ":purple_circle:";
+        return "🟣";
     case Target::Status::PAUSED:
-        return ":orange_circle:";
+        return "🟠";
     case Target::Status::SUSPENDED:
-        return ":red_circle:";
+        return "🔴";
     default:
-        return ":o:";
+        return "⚫";
     }
+    // switch(status) {
+    // case Target::Status::ACTIVE:
+    //     return ":green_circle:";
+    // case Target::Status::AUTOMATIC:
+    //     return ":purple_circle:";
+    // case Target::Status::PAUSED:
+    //     return ":orange_circle:";
+    // case Target::Status::SUSPENDED:
+    //     return ":red_circle:";
+    // default:
+    //     return ":o:";
+    // }
 }
 std::string Tracker::status_string(Target::Status status) {
     switch (status) {
@@ -332,45 +349,51 @@ void Tracker::send_for_approval(const reddit::Comment& comment) {
 }
 
 void Tracker::print_target_list(int64_t channel_id) {
+    const int discord_msg_max = 1994; //Discord max length is 2000, minus 6 for a set of ``` characters
+
+    int minimum_spacing_req = 0;
     const std::vector<Target::Data> targets = _cfg_handler->get_targets_vector_data();
-    const int discord_field_size = 25;
-    
+    for(const auto& itr : targets) {
+        minimum_spacing_req = std::max(minimum_spacing_req, (int)itr.username.size());
+    }
+
+    std::string list_msg;
+    list_msg.reserve(discord_msg_max + 6);
+    for(const auto& itr : targets) {
+        const std::string status_symbol = Tracker::status_emote(itr.status);
+
+        const int spaces_req = minimum_spacing_req - itr.username.size() + 2; //Discord ' ' Equalization
+        const std::string minimum_spacing(spaces_req, ' ');
+
+        std::string target_line = fmt::format("{0}  |  {1}{2}|  {3}\n", 
+                                                status_symbol, itr.username, minimum_spacing, itr.expertise);
+        list_msg += target_line;
+    }
+
     std::vector<dpp::message> message_batches;
-    message_batches.reserve(targets.size() / discord_field_size + 1);
+    int reserve_count = (list_msg.size() + discord_msg_max - 1) / discord_msg_max;
+    message_batches.reserve(reserve_count + 1);
 
-    const dpp::embed first_embed = dpp::embed()
-        .set_title(fmt::format("{} Users Tracked", targets.size()))
-        .set_color(0xFF8300);
+    const std::string counter_message = fmt::format("> **{}** Users Registered On Tracker", targets.size());
+    message_batches.emplace_back(dpp::message(channel_id, counter_message));
 
-    message_batches.emplace_back(dpp::message(channel_id, first_embed));
+    if(list_msg.size() <= discord_msg_max) {
+        message_batches.emplace_back(dpp::message(channel_id, "```" + list_msg + "```"));
+    }
+    else {
+        int remaining_length = list_msg.size();
+        int start = 0;
+        while(remaining_length > discord_msg_max) {
+            std::string newstring(list_msg.substr(start, discord_msg_max));
+            int last_separator_index = newstring.find_last_of('\n');
+            newstring = newstring.substr(0, last_separator_index);
 
-    for(int i = 0; i < targets.size();) {
-        std::vector<dpp::embed_field> user_fields;
-        user_fields.reserve(discord_field_size);
-
-        const int64_t modulus_count = targets.size() % discord_field_size;
-        const int64_t count = (modulus_count == 0) ? discord_field_size : modulus_count;
-
-        for(int j = 0; j < count; ++j) {
-            Target::Data current_target = targets[i];
-            const std::string status_symbol = status_emote(current_target.status);
-            const std::string status_name = status_string(current_target.status);
-            const std::string expertise = current_target.expertise;
-            const std::string value = fmt::format("{0}\n{1} {2}", 
-                expertise, status_symbol, status_name);
-
-            dpp::embed_field current_field;
-            current_field.is_inline = true;
-            current_field.name = current_target.username;
-            current_field.value = value;
-
-            user_fields.emplace_back(current_field);
+            message_batches.emplace_back(dpp::message(channel_id, "```" + newstring + "```"));
+            remaining_length -= newstring.size();
+            start += newstring.size();
         }
-        i += count;
-
-        dpp::embed tracker_batch_msg = dpp::embed();
-        tracker_batch_msg.fields = user_fields;
-        message_batches.emplace_back(dpp::message(channel_id, tracker_batch_msg));
+        std::string newstring(list_msg.substr(start, list_msg.size()));
+        message_batches.emplace_back(dpp::message(channel_id, "```" + newstring + "```"));
     }
 
     for(const auto& message_itr : message_batches) {
