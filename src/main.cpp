@@ -1,5 +1,4 @@
 #include <dpp/dpp.h>
-#include <dpp/fmt/format.h>
 
 #include "trackerbot/commands.h"
 #include "trackerbot/tracker.h"

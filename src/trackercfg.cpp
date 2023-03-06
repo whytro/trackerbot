@@ -72,6 +72,8 @@ void TrackerConfig::load_config() {
     _format_config.footer = format_cfg["Footer"].GetString();
 
     if(doc.HasMember("Users")) {
+        _user_map.clear();
+        
         for(const auto& itr : doc["Users"].GetObject()) {
             User user;
             user.username = itr.name.GetString();
