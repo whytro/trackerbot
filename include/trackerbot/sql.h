@@ -15,6 +15,12 @@ class sql_handler {
 public:
 	sql_handler(std::string subreddit, std::string admin_credentials, std::string conn_string);
 
+	struct Dev_Ratio {
+		int all_total = 0;
+		int all_pinned = 0;
+		int dev_total = 0;
+		int dev_pinned = 0;
+	};
 	struct Comment_Response {
 		std::string comment_id;
 		std::string thread_id;
@@ -25,6 +31,8 @@ public:
 	bool admin_check_setup_status();
 
 	std::unordered_map<std::string, Target> get_dev_map();
+	std::pair<int, int> get_total_pinned();
+	Dev_Ratio get_dev_ratio(const std::string& dev);
 
 	void insert_thread(const std::string& thread_id, const std::string& sticky_id);
 	void delete_thread(const std::string& thread_id);
@@ -82,7 +90,7 @@ private:
 
 	enum class Prepareds {
 		//Devs
-		GET_DEV_MAP, GET_DEVEDITS_SESSIONS,
+		GET_DEV_MAP, GET_DEVEDITS_SESSIONS, GET_TOTAL_PINNED, GET_DEV_RATIO,
 		//Threads & Comments (Inserts & Updates)
 		INSERT_THREAD, DELETE_THREAD, GET_THREAD_ID,  
 		INSERT_COMMENT, UPDATE_COMMENT, CHANGE_COMMENT_STATUS, GET_COMMENT_STATUS,

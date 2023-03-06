@@ -34,6 +34,12 @@ sql_handler::sql_handler(std::string subreddit, std::string admin_credentials, s
 	conn_mtx.unlock();
 
 	prepared_statements = {
+		{ Prepareds::GET_TOTAL_PINNED,				{ "Get_Total_Pinned",		  "SELECT COUNT(*) AS all_total, sum(case when status = 1 then 1 else 0 end) AS all_pinned FROM comments;" } },
+		{ Prepareds::GET_DEV_RATIO,					{ "Get_Dev_Ratio",			  "SELECT COUNT(*) AS all_total, \
+																						(SELECT COUNT(*) FROM comments WHERE status = 1) AS all_pinned, \
+																						(SELECT COUNT(*) FROM comments WHERE LOWER(dev_username) = LOWER($1)) AS dev_total, \
+																						(SELECT COUNT(*) FROM comments WHERE LOWER(dev_username) = LOWER($1) AND status = 1) AS dev_pinned \
+																					FROM comments;" } },
 		{ Prepareds::INSERT_THREAD,			    	{ "Insert_Thread",            "INSERT INTO threads(Thread_ID, Sticky_ID) VALUES($1, $2);" } },
 		{ Prepareds::DELETE_THREAD,					{ "Delete_Thread",            "DELETE FROM threads WHERE Thread_ID = $1;" } },
 		{ Prepareds::GET_THREAD_ID,					{ "Get_Thread_ID",            "SELECT Thread_ID FROM comments WHERE Comment_ID = $1 LIMIT 1;" } },
@@ -135,6 +141,8 @@ std::unordered_map<std::string, Target> sql_handler::get_dev_map() {
 
 	pqxx::result devs{ txn.exec("SELECT Dev_Username, Expertise, Status FROM devs;") };
 	pqxx::result edit_sessions{ txn.exec("SELECT Dev_Username, Managing_Msg, Msg_Channel FROM devedit_sessions;") };
+	pqxx::result ratio{ txn.exec("SELECT dev_username, COUNT(*) AS total, sum(case when status = 1 then 1 else 0 end) AS pinnedcount \
+								  FROM comments GROUP BY dev_username;")};
 
 	conn_mtx.unlock();
 
@@ -158,7 +166,51 @@ std::unordered_map<std::string, Target> sql_handler::get_dev_map() {
 		itr->second.data->managing_msg_id = row[1].as<int64_t>();
 		itr->second.data->msg_channel = row[2].as<int64_t>();
 	}
+	for(const auto& row : ratio) {
+		std::unordered_map<std::string, Target>::iterator itr = res.find(row[0].as<std::string>());
+		if(itr == res.end()) {
+			continue;
+		}
+		itr->second.data->dev_total = row[1].as<int>();
+		itr->second.data->dev_pinned = row[2].as<int>();
+	}
 	
+	return res;
+}
+std::pair<int, int> sql_handler::get_total_pinned() {
+	const std::string& stm = prepared_statements[Prepareds::GET_TOTAL_PINNED].name;
+
+	conn_mtx.lock();
+	pqxx::nontransaction txn{*conn};
+
+	/*SELECT COUNT(*) AS all_total,
+		sum(case when status = 1 then 1 else 0 end) AS all_pinned
+	FROM comments;*/
+	pqxx::result r{ txn.exec_prepared(stm) };
+	conn_mtx.unlock();	
+
+	return std::pair<int, int>{ r[0][0].as<int>(), r[0][1].as<int>() };;
+}
+sql_handler::Dev_Ratio sql_handler::get_dev_ratio(const std::string& dev) {
+	const std::string& stm = prepared_statements[Prepareds::GET_DEV_RATIO].name;
+
+	conn_mtx.lock();
+	pqxx::nontransaction txn{*conn};
+
+	/*SELECT COUNT(*) AS all_total,
+		(SELECT COUNT(*) FROM comments WHERE status = 1) AS all_pinned,
+		(SELECT COUNT(*) FROM comments WHERE dev_username = $1) AS dev_total,
+		(SELECT COUNT(*) FROM comments WHERE dev_username = $1 AND status = 1) AS dev_pinned
+	FROM comments;*/
+	pqxx::result r{ txn.exec_prepared(stm, dev) };
+	conn_mtx.unlock();
+
+	Dev_Ratio res;
+	res.all_total = r[0][0].as<int>();
+	res.all_pinned = r[0][1].as<int>();
+	res.dev_total = r[0][2].as<int>();
+	res.dev_pinned = r[0][3].as<int>();
+
 	return res;
 }
 

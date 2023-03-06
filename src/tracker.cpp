@@ -67,7 +67,7 @@ bool Tracker::permissions_check(const dpp::interaction_create_t& event, User::Pe
         event.reply(dpp::ir_channel_message_with_source, "Insufficient Permissions");
     }
 
-    return allowed;   
+    return allowed;
 }
 
 int32_t Tracker::status_color(Target::Status status) {
@@ -97,18 +97,6 @@ std::string Tracker::status_emote(Target::Status status) {
     default:
         return "⚫";
     }
-    // switch(status) {
-    // case Target::Status::ACTIVE:
-    //     return ":green_circle:";
-    // case Target::Status::AUTOMATIC:
-    //     return ":purple_circle:";
-    // case Target::Status::PAUSED:
-    //     return ":orange_circle:";
-    // case Target::Status::SUSPENDED:
-    //     return ":red_circle:";
-    // default:
-    //     return ":o:";
-    // }
 }
 std::string Tracker::status_string(Target::Status status) {
     switch (status) {
@@ -232,10 +220,16 @@ void Tracker::log_post_action(const std::string& user, const reddit::Comment& co
     const int32_t color = approved ? 0x00FF00 : 0xFF0000;
     const std::string action_string = approved ? "Approved by: " : "Denied by: ";
 
+    sql_handler::Dev_Ratio ratio = _sql->get_dev_ratio(comment.author);
+
     dpp::embed embed = dpp::embed()
         .set_title(comment.subreddit_name_prefixed)
         .set_color(color)
         .set_description(comment.author)
+        .add_field(
+            "Pin Ratio",
+            fmt::format("```diff\n+{0} Pinned\n-{1} Not Pinned\n```", ratio.dev_pinned, ratio.dev_total-ratio.dev_pinned)
+        )
         .add_field(
             "Post Link",
             "https://www.reddit.com" + comment.permalink

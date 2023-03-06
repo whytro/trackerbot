@@ -14,6 +14,8 @@ public:
         Status status = Status::UNKNOWN;
         int64_t managing_msg_id = 0;
         int64_t msg_channel = 0;
+        int dev_total = 0;
+        int dev_pinned = 0;
     };
 
     std::shared_ptr<Target::Data> data;
