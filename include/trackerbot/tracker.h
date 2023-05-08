@@ -42,7 +42,7 @@ public:
 	void change_target_status(const dpp::interaction_create_t& event, const std::string& target_name, Target::Status status);
 	void change_target_expertise(const dpp::interaction_create_t& event, const std::string& target_name, const std::string& expertise);
 	void add_target_to_tracker(const dpp::interaction_create_t& event, const std::string& target_name);
-	void suspend_target(const dpp::interaction_create_t& event, const std::string& target_name);
+	bool suspend_target(const dpp::interaction_create_t& event, const std::string& target_name);
 
 	int force_update(int days);
 

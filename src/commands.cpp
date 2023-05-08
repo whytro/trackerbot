@@ -28,6 +28,19 @@ Commands_Handler::Commands_Handler(dpp::cluster* bot, Tracker* tracker)
                 _tracker->edit_target_menu(event, user);
             }
         },
+        { "mass_suspend_users", [this](const dpp::interaction_create_t& event) {
+                dpp::component mass_remove_input = dpp::component()
+                    .set_label("Mass Remove Users")
+                    .set_type(dpp::cot_text)
+                    .set_min_length(1)
+                    .set_max_length(1000)
+                    .set_text_style(dpp::text_paragraph)
+                    .set_id("mass_remove_users_input");
+                dpp::interaction_modal_response mass_removal_modal("mass_removal_modal", "Mass Remove Users (Separate with newline)");
+                mass_removal_modal.add_component(mass_remove_input);
+                event.dialog(mass_removal_modal);
+            }
+        },
         { "ping", [this](const dpp::interaction_create_t& event) {
                 if(!_tracker->permissions_check(event, User::Permission::BASIC)) {
                     return;
@@ -159,10 +172,12 @@ Commands_Handler::Commands_Handler(dpp::cluster* bot, Tracker* tracker)
                     .add_option(
                         dpp::command_option(dpp::co_string, "username", "Their Reddit Username", true)
                     );
+                dpp::slashcommand mass_removal_prompt_cmd = dpp::slashcommand("mass_suspend_users", "Mass Remove Users from the Tracker", _bot->me.id);
                 dpp::slashcommand ping_cmd = dpp::slashcommand("ping", "Check if Bot is still Alive", _bot->me.id);
 
                 commands.emplace_back(tracker_cmd);
                 commands.emplace_back(edit_cmd);
+                commands.emplace_back(mass_removal_prompt_cmd);
                 commands.emplace_back(ping_cmd);
 
                 _bot->guild_bulk_command_create(commands, event.command.guild_id);

@@ -112,6 +112,46 @@ int main() {
                 .set_flags(dpp::m_ephemeral);
             event.reply(cmd_reply);
         }
+
+        if(command == "mass_removal_modal") {
+            std::string successful;
+            std::string failed;
+
+            const std::string input_string = std::get<std::string>(event.components[0].components[0].value);
+
+            auto format = [](const std::string& target) {
+                return "`" + target + "` ";
+            };
+
+            std::stringstream input_ss(input_string);
+            std::vector<std::string> targets;
+            
+            std::string current;
+            std::string targets_string;
+            while(std::getline(input_ss, current, '\n')) {
+                targets.push_back(current);
+                targets_string += format(current);
+            }
+            dpp::message cmd_reply = dpp::message(dpp::ir_channel_message_with_source, "__**Mass Removal Run**__\n"+targets_string);
+            event.reply(cmd_reply);
+
+            for(int i = 0; i < targets.size(); ++i) {
+                bool suspend_result = tracker.suspend_target(event, targets[i]);
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+                if(!suspend_result) {
+                    failed += format(targets[i]);
+                }
+                else {
+                    successful += format(targets[i]);
+                }
+            }
+
+            const std::string output = "> Successful:\n" + successful + "\n> Failed:\n" + failed;
+
+            dpp::message cmd_reply_complete = dpp::message(dpp::ir_channel_message_with_source, "__**Mass Removal Run**__\n"+output);
+            event.edit_response(cmd_reply_complete);
+        }
     });
 
     bot.start(false);

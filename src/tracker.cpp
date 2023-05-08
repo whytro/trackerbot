@@ -345,15 +345,24 @@ void Tracker::send_for_approval(const reddit::Comment& comment) {
 void Tracker::print_target_list(int64_t channel_id) {
     const int discord_msg_max = 1994; //Discord max length is 2000, minus 6 for a set of ``` characters
 
+    int suspended_count = 0;
+
     int minimum_spacing_req = 0;
     const std::vector<Target::Data> targets = _cfg_handler->get_targets_vector_data();
     for(const auto& itr : targets) {
+        if(itr.status == Target::Status::SUSPENDED) {
+            ++suspended_count;
+        }
         minimum_spacing_req = std::max(minimum_spacing_req, (int)itr.username.size());
     }
 
     std::string list_msg;
     list_msg.reserve(discord_msg_max + 6);
     for(const auto& itr : targets) {
+        if(itr.status == Target::Status::SUSPENDED) {
+            continue;
+        }
+
         const std::string status_symbol = Tracker::status_emote(itr.status);
 
         const int spaces_req = minimum_spacing_req - itr.username.size() + 2; //Discord ' ' Equalization
@@ -368,7 +377,7 @@ void Tracker::print_target_list(int64_t channel_id) {
     int reserve_count = (list_msg.size() + discord_msg_max - 1) / discord_msg_max;
     message_batches.reserve(reserve_count + 1);
 
-    const std::string counter_message = fmt::format("> **{}** Users Registered On Tracker", targets.size());
+    const std::string counter_message = fmt::format("> **{}** Users Registered On Tracker", targets.size()-suspended_count);
     message_batches.emplace_back(dpp::message(channel_id, counter_message));
 
     if(list_msg.size() <= discord_msg_max) {
@@ -708,6 +717,11 @@ void Tracker::change_target_status(const dpp::interaction_create_t& event, const
     Target target = _cfg_handler->target_map_find(target_name);
 
     const Target::Status old_status = target.data->status;
+
+    if(old_status == Target::Status::SUSPENDED) {
+        add_target_to_tracker(event, target_name);
+    }
+
     target.data->status = status;
 
     const dpp::embed embed = dpp::embed()
@@ -764,11 +778,18 @@ void Tracker::add_target_to_tracker(const dpp::interaction_create_t& event, cons
 
     _cfg_handler->target_map_emplace(target);
 }
-void Tracker::suspend_target(const dpp::interaction_create_t& event, const std::string& target_name) {
+bool Tracker::suspend_target(const dpp::interaction_create_t& event, const std::string& target_name) {
+    Target target = _cfg_handler->target_map_find(target_name);
+    if(target.is_empty()) {
+        return false;
+    }
+
     _reddit_api->user(target_name).remove_friend();
 
     change_target_status(event, target_name, Target::Status::SUSPENDED);
     _cfg_handler->target_map_remove(target_name);
+
+    return true;
 }
 
 int Tracker::update_thread(const std::string& thread_id, const std::map<std::string, int64_t>& timestamps, bool ignore_edit_checks) {
